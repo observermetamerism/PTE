@@ -1,8 +1,6 @@
 function [volume, tetrahedrons] = computeVCRC(spd)
     %% Step 2. Load the basic variables
     T = readtable('CIED65_SPD.xlsx');
-
-    XYZtest = [47.5227963500000;50;54.4528875500000]; % A neutral color for evaluating OM (D65 with 50 cd/m2)
     stdOb = table2array(T(1:end, 3:5)); % CIE 2015 10-deg standard observer
     k = 683;
     M = (k .* stdOb' * spd);
