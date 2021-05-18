@@ -25,4 +25,4 @@ xlabel('a_M');
 ylabel('b_M');
 zlabel('Q');
 
-disp(['Volume: ' num2str(volume)]);
+title(['Volume: ' num2str(volume)]);
