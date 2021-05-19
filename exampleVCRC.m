@@ -14,7 +14,7 @@ for i = 1:number_of_test_displays
 end
 
 % We have 7 test displays.
-did = 2; % display ID
+did = 1; % display ID
 spd = testDisplays(did).spd;
 
 [volume, tetrahedrons] = computeVCRC(spd);

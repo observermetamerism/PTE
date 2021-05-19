@@ -1,11 +1,14 @@
+%% Compute the CGV of a given display.
+%% Note that spd is a 391 x n matrix. n = number of primaries
+%% 391 = from 390nm to 780 nm
 function [volume, tetrahedrons] = computeVCRC(spd)
-    %% Step 2. Load the basic variables
+    %% Load the basic variables
     T = readtable('CIED65_SPD.xlsx');
     stdOb = table2array(T(1:end, 3:5)); % CIE 2015 10-deg standard observer
     k = 683;
     M = (k .* stdOb' * spd);
 
-    %% Make a primary + secondary
+    %% Generate secondary primaries
     [~, col] = size(M);
 
     Me = zeros(3, col .* 2);
@@ -19,7 +22,7 @@ function [volume, tetrahedrons] = computeVCRC(spd)
     end
     Me(:, end) = M(:, 1) + M(:, end);
 
-    %% Assuming 10-bit
+    %% Assuming the precision is 10-bit and create interpolated points. 
     lvs = (0:64:1023);
     lvs = [lvs, 1023] ./ 1023;
     number_of_lvs = length(lvs);
@@ -35,6 +38,8 @@ function [volume, tetrahedrons] = computeVCRC(spd)
 
     primaries(number_of_primaries + 1).XYZs = sum(M');
 
+    % Compute Q, M, and h using CAM16 and the improved M formula in Chapter
+    % 5.
     QMh = zeros(number_of_primaries .* number_of_lvs + 1, 3);
 
     XYZtest = [47.5227963500000;50;54.4528875500000]; % A neutral color for evaluating OM (D65 with 50 cd/m2)
@@ -54,23 +59,16 @@ function [volume, tetrahedrons] = computeVCRC(spd)
 
     QMaMb = computeMaMb(QMh(1:end-1, :));
     QpMaMb = QMaMb(17:17:end, :);
-    %
-    % figure;
-    % scatter3(QMaMb(:, 2), QMaMb(:, 3), QMaMb(:, 1), 30, 'k', 'filled');
 
-    % Step 4-1
+    % Step 4-1 in the VCRC standard
     DT1 = delaunay(QMaMb(:, 2), QMaMb(:, 3));
-    % figure;
-    % triplot(DT1, QMaMb(:, 2), QMaMb(:, 3));
 
-    % Step 4-2
+    % Step 4-2 in the VCRC standard
     QwMaMb = computeMaMb(QMh(end, :));
     QtMaMb = [QpMaMb; QwMaMb];
     DT2 = delaunay(QtMaMb(:, 2), QtMaMb(:, 3));
-    % figure;
-    % triplot(DT2, QtMaMb(:, 2), QtMaMb(:, 3));
 
-    % An inner point
+    % Compute an inner point
     QiMaMb = mean([QtMaMb; 0 0 0]);
 
     QaMaMb = [QMaMb; QtMaMb; QiMaMb];
@@ -79,9 +77,9 @@ function [volume, tetrahedrons] = computeVCRC(spd)
     DT_all = [DT_all, repmat(length(QaMaMb), length(DT_all), 1)];
 
     [row, ~] = size(DT_all);
-
+    
+    % Step 5. Compute the volume of each tetrahedron and sum them up. 
     volume = 0;
-
     for x = 1:row
         P1 = QaMaMb(DT_all(x, 1), :);
         P2 = QaMaMb(DT_all(x, 2), :);
@@ -91,18 +89,11 @@ function [volume, tetrahedrons] = computeVCRC(spd)
         volume = volume + (1/6*abs(dot(cross(P2-P1,P3-P1),P4-P1)));
     end
 
+    % For visualization, return the 3-d coordinates of the tetrahedrons. 
     QzMaMb = [QaMaMb(:, 2), QaMaMb(:, 3), QaMaMb(:, 1)];
     
     tetrahedrons.QmAmBm = QzMaMb;
     tetrahedrons.DT = DT_all;
-    
-%     figure;
-%     tetramesh(DT_all, QzMaMb,'FaceAlpha',0.1);
-%     xlabel('a_M');
-%     ylabel('b_M');
-%     zlabel('Q');
-% 
-%     disp(volume);
 end
 
 function QMaMb = computeMaMb(QMh)
@@ -115,12 +106,9 @@ function QMaMb = computeMaMb(QMh)
         M = QMh(x, 2);
         QMaMb(x, :) = [QMh(x, 1), M .* cos(deg2rad(h)), M .* sin(deg2rad(h))];
     end
-%     QMhmax = QMaMb(17:17:row, :);
-%     QMhmax = [QMhmax; QMh(1, :); QMh(row, :)];
-%     
-%     QMaMb(row + 1, :) = mean(QMhmax);
 end
 
+% The improved M formula
 function Mp = computeMp(cam)
     M = cam.M;
 
